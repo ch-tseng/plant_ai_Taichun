@@ -32,7 +32,7 @@ while True:
 
 #--> PLANT CV
     counter, s = pcv.rgb2gray_hsv(img, 's', counter, debug)
-    counter, s_thresh = pcv.binary_threshold(s, 90, 255, 'light', counter, debug)
+    counter, s_thresh = pcv.binary_threshold(s, 145, 255, 'light', counter, debug)
     counter, s_mblur = pcv.median_blur(s_thresh, 5, counter, debug)
 
      # Convert RGB to LAB and extract the Blue channel
@@ -66,5 +66,22 @@ while True:
     # Apply mask (for vis images, mask_color=white)
     counter, masked2 = pcv.apply_mask(masked, ab_fill, 'white', counter, debug)
 
-    displayImage(masked2, "images/bg_a1.jpg", "Plant Image", 3)
+    #-------------------------------------------------------
+     # Identify objects
+    #counter, id_objects,obj_hierarchy = pcv.find_objects(masked2, ab_fill, counter, debug)
+    # Define ROI
+    #counter, roi1, roi_hierarchy= pcv.define_roi(masked2, 'rectangle', counter, None, 'default', debug, True, 550, 0, -500, -1900)
+    # Decide which objects to keep
+    #counter, roi_objects, hierarchy3, kept_mask, obj_area = pcv.roi_objects(img, 'partial', roi1, roi_hierarchy, id_objects, obj_hierarchy, counter, debug)
+    # Object combine kept objects
+    #counter, obj, mask = pcv.object_composition(img, roi_objects, hierarchy3, counter, debug)
+
+    zeros = np.zeros(masked2.shape[:2], dtype = "uint8")
+    merged = cv2.merge([zeros, ab_fill, zeros])
+
+    for i in range(2):
+        displayImage(img, "images/bg_a1.jpg", "Plant Image", 3000)
+        displayImage(merged, "images/bg_a1.jpg", "Plant Image", 3000)
+        displayImage(masked2, "images/bg_a1.jpg", "Plant Image", 3000)
+
 #<--- END PLANT CV
