@@ -1,10 +1,15 @@
 import subprocess
 import cv2
 
-import sys, traceback
+import sys, traceback, os
 import numpy as np
 import string
 from plantcv import plantcv as pcv
+
+from plant_detection.PlantDetection import PlantDetection
+
+from pydarknet import Detector, Image
+import imutils
 
 def takePicture():
     bashCommand = "fswebcam -r 1280x720 --no-banner cam.jpg"
@@ -24,11 +29,84 @@ def displayImage(img, bgimg, winName="test", waitTime=0):
     cv2.imshow(winName, bg)
     cv2.waitKey(waitTime)
 
+def plantDetect(imagePath, imgname, typeDisplay=0):
+
+    if(typeDisplay==0):
+        PD = PlantDetection(image=imagePath, verbose=False, text_output=False, grey_out=True,
+            clump_buster=False, draw_contours=False, circle_plants=False)
+        print("Remove the soil area (去除土壤區域)")
+    elif(typeDisplay==1):
+        PD = PlantDetection(image=imagePath, verbose=False, text_output=False, grey_out=True,
+            clump_buster=False, draw_contours=True, circle_plants=False)
+        print("Draw the outline of plants (描繪植物外框)")
+    elif(typeDisplay==2):
+        PD = PlantDetection(image=imagePath, verbose=False, text_output=False, grey_out=True,
+            clump_buster=True, draw_contours=False, circle_plants=False)
+        print("Plant area segnemt (植物區域切分)")
+    elif(typeDisplay==3):
+        PD = PlantDetection(image=imagePath, verbose=False, text_output=False, grey_out=True,
+            clump_buster=False, draw_contours=False, circle_plants=True)
+        print("Area for each plant (植物本秼區域)")
+    elif(typeDisplay==4):
+        PD = PlantDetection(image=imagePath, verbose=False, text_output=False, grey_out=True,
+            clump_buster=True, draw_contours=True, circle_plants=True)
+        print("End...")
+    #elif(typeDisplay==5):
+    #    PD = PlantDetection(image=imagePath, verbose=False, text_output=False, grey_out=False,
+    #        clump_buster=False, draw_contours=False, circle_plants=False)
+
+
+    try:
+        PD.detect_plants()
+        #print (PD.detect_plants())
+        #print("python test.py -i " + picPath + ".jpg")
+        return cv2.imread(imgname+'_marked.jpg')
+
+    except:
+        #GPIO.cleanup()
+        pass
+
+def yoloDetect(img):
+    net = Detector(bytes("cfg.taichun/yolov3-tiny.cfg", encoding="utf-8"),
+        bytes("cfg.taichun/weights/yolov3-tiny_3600.weights", encoding="utf-8"), 0,
+        bytes("cfg.taichun/obj.data",encoding="utf-8"))
+
+    img2 = Image(img)
+
+    results = net.detect(img2)
+
+    for cat, score, bounds in results:
+        cat = cat.decode("utf-8")
+        if(cat == "Pteris_cretica"):
+            boundcolor = (0, 238, 252)
+        elif(cat == "Echeveria_Minibelle"):
+            boundcolor = (227, 252, 2)
+        elif(cat == "Crassula_capitella"):
+            boundcolor = (249, 77, 190)
+
+        x, y, w, h = bounds
+        cv2.rectangle(img, (int(x - w / 2), int(y - h / 2)), (int(x + w / 2), int(y + h / 2)), (255, 0, 0), thickness=2)
+
+        boundbox = cv2.imread("images/"+cat+".jpg")
+        print("read:","images/"+cat+".jpg")
+        print(y, boundbox.shape[0],x , boundbox.shape[1])
+        #img[ int(y-h/2):int(y-h/2)+boundbox.shape[0], int(x-w/2):int(x-w/2)+boundbox.shape[1]] = boundbox
+        img[ int(y):int(y+boundbox.shape[0]), int(x):int(x+boundbox.shape[1])] = boundbox
+
+    return img
+
+
+
 counter = 0
 debug = None
 
 while True:
     img = takePicture()
+
+    #for i in range(0,5):
+    #    plant1 = plantDetect("cam.jpg", "cam", i)
+    #    displayImage(plant1, "images/bg_a1.jpg", "Plant Image", 3000)
+
 
 #--> PLANT CV
     counter, s = pcv.rgb2gray_hsv(img, 's', counter, debug)
@@ -84,4 +162,8 @@ while True:
         displayImage(merged, "images/bg_a1.jpg", "Plant Image", 3000)
         displayImage(masked2, "images/bg_a1.jpg", "Plant Image", 3000)
 
-#<--- END PLANT CV
+    #<--- END PLANT CV
+
+    displayImage(img, "images/bg_a2.jpg", "Plant Image", 1)
+    yoloimage = yoloDetect(img)
+    displayImage(yoloimage, "images/bg_a2.jpg", "Plant Image", 6000)
