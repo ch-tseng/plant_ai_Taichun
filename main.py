@@ -95,20 +95,68 @@ def yoloDetect(img):
 
     return img
 
+def contrast_stretch(im):
+    """
+    Performs a simple contrast stretch of the given image, from 5-95%.
+    """
+    in_min = np.percentile(im, 5)
+    in_max = np.percentile(im, 95)
+
+    out_min = 0.0
+    out_max = 255.0
+
+    out = im - in_min
+    out *= ((out_min - out_max) / (in_min - in_max))
+    out += in_min
+
+    return out
+
+def ndvi1(image):
+    # use Standard NDVI method, smaller for larger area
+    thRED1 = 150
+    thYELLOW1 = 60
+    thGREEN1 = 0
+
+    #image = cv2.bitwise_and(image, image, mask=cv2.imread("9_or_joined.png"))
+    r, g, b = cv2.split(image)
+    divisor = (r.astype(float) + b.astype(float))
+    divisor[divisor == 0] = 0.01  # Make sure we don't divide by zero!
+
+    ndvi = (b.astype(float) - r) / divisor
+
+    #Paint the NDVI image
+    ndvi2 = contrast_stretch(ndvi)
+    ndvi2 = ndvi2.astype(np.uint8)
+
+    redNDVI = cv2.inRange(ndvi2, thRED1, 255)
+    yellowNDVI = cv2.inRange(ndvi2, thYELLOW1, thRED1)
+    greenNDVI = cv2.inRange(ndvi2, thGREEN1, thYELLOW1)
+    merged = cv2.merge([yellowNDVI, greenNDVI, redNDVI])
+
+    #text = '[Max]: {m} '.format(m=round(ndvi.max(),1))
+    #text = text + '[Mean]: {m} '.format(m=round(ndvi.mean(),1))
+    #text = text + '[Median]: {m} '.format(m=round(np.median(ndvi),1))
+    #text = text + '[Min]: {m}'.format(m=round(ndvi.min(),1))
+    return merged
 
 
 counter = 0
 debug = None
+cv2.namedWindow("Plant Image", cv2.WND_PROP_FULLSCREEN)        # Create a named window
+cv2.setWindowProperty("Plant Image", cv2.WND_PROP_FULLSCREEN,cv2.WINDOW_FULLSCREEN)
+
 
 while True:
     img = takePicture()
+    displayImage(img, "images/bg_pic.jpg", "Plant Image", 3000)
 
-    #for i in range(0,5):
-    #    plant1 = plantDetect("cam.jpg", "cam", i)
-    #    displayImage(plant1, "images/bg_a1.jpg", "Plant Image", 3000)
-
+    ndviImg = ndvi1(img)
+    displayImage(ndviImg, "images/bg_a0.jpg", "Plant Image", 3000)
 
 #--> PLANT CV
+    img = takePicture()
+    displayImage(img, "images/bg_pic.jpg", "Plant Image", 3000)
+
     counter, s = pcv.rgb2gray_hsv(img, 's', counter, debug)
     counter, s_thresh = pcv.binary_threshold(s, 145, 255, 'light', counter, debug)
     counter, s_mblur = pcv.median_blur(s_thresh, 5, counter, debug)
@@ -164,6 +212,9 @@ while True:
 
     #<--- END PLANT CV
 
-    displayImage(img, "images/bg_a2.jpg", "Plant Image", 1)
+    img = takePicture()
+    displayImage(img, "images/bg_pic.jpg", "Plant Image", 1000)
+
+    displayImage(img, "images/bg_a2.jpg", "Plant Image", 3000)
     yoloimage = yoloDetect(img)
-    displayImage(yoloimage, "images/bg_a2.jpg", "Plant Image", 6000)
+    displayImage(yoloimage, "images/bg_a2.jpg", "Plant Image", 9000)
