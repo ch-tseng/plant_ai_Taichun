@@ -1,7 +1,9 @@
+#!/home/pi/.virtualenvs/dp/bin/python
 import subprocess
 import cv2
+import gc
 
-import sys, traceback, os
+import time, sys, traceback, os
 import numpy as np
 import string
 from plantcv import plantcv as pcv
@@ -12,14 +14,18 @@ from pydarknet import Detector, Image
 import imutils
 
 def takePicture():
-    bashCommand = "fswebcam -r 1280x720 --no-banner cam.jpg"
-    process = subprocess.Popen(bashCommand.split(), stdout=subprocess.PIPE)
-    output, error = process.communicate()
-
+    bashCommand = "fswebcam -r 640x360 --no-banner cam.jpg"
+    #process = subprocess.Popen(bashCommand.split(),shell=True, close_fds=True, stdout=subprocess.PIPE)
+    #output, error = process.communicate()
+    os.system(bashCommand)
+    time.sleep(5)
     img = cv2.imread("cam.jpg")
     return img
 
 def displayImage(img, bgimg, winName="test", waitTime=0):
+    print(img.shape)
+    img = imutils.resize(img, height=720)
+    print(img.shape)
     if(bgimg != None):
         bg = cv2.imread(bgimg)
         bg[240:240+img.shape[0], 0:img.shape[1]] = img
@@ -65,6 +71,50 @@ def plantDetect(imagePath, imgname, typeDisplay=0):
     except:
         #GPIO.cleanup()
         pass
+
+def plant_cv(img):
+    counter = 0
+    debug = None
+
+    counter, s = pcv.rgb2gray_hsv(img, 's', counter, debug)
+    counter, s_thresh = pcv.binary_threshold(s, 145, 255, 'light', counter, debug)
+    counter, s_mblur = pcv.median_blur(s_thresh, 5, counter, debug)
+
+     # Convert RGB to LAB and extract the Blue channel
+    counter, b = pcv.rgb2gray_lab(img, 'b', counter, debug)
+
+    # Threshold the blue image
+    counter, b_thresh = pcv.binary_threshold(b, 145, 255, 'light', counter, debug)
+    counter, b_cnt = pcv.binary_threshold(b, 145, 255, 'light', counter, debug)
+    # Join the thresholded saturation and blue-yellow images
+    counter, bs = pcv.logical_or(s_mblur, b_cnt, counter, debug)
+    counter, masked = pcv.apply_mask(img, bs, 'white', counter, debug)
+
+    #----------------------------------------
+    # Convert RGB to LAB and extract the Green-Magenta and Blue-Yellow channels
+    counter, masked_a = pcv.rgb2gray_lab(masked, 'a', counter, debug)
+    counter, masked_b = pcv.rgb2gray_lab(masked, 'b', counter, debug)
+
+    # Threshold the green-magenta and blue images
+    counter, maskeda_thresh = pcv.binary_threshold(masked_a, 115, 255, 'dark', counter, debug)
+    counter, maskeda_thresh1 = pcv.binary_threshold(masked_a, 135, 255, 'light', counter, debug)
+    counter, maskedb_thresh = pcv.binary_threshold(masked_b, 128, 255, 'light', counter, debug)
+
+    # Join the thresholded saturation and blue-yellow images (OR)
+    counter, ab1 = pcv.logical_or(maskeda_thresh, maskedb_thresh, counter, debug)
+    counter, ab = pcv.logical_or(maskeda_thresh1, ab1, counter, debug)
+    counter, ab_cnt = pcv.logical_or(maskeda_thresh1, ab1, counter, debug)
+
+    # Fill small objects
+    counter, ab_fill = pcv.fill(ab, ab_cnt, 200, counter, debug)
+
+    # Apply mask (for vis images, mask_color=white)
+    counter, masked2 = pcv.apply_mask(masked, ab_fill, 'white', counter, debug)
+
+    zeros = np.zeros(masked2.shape[:2], dtype = "uint8")
+    merged = cv2.merge([zeros, ab_fill, zeros])
+
+    return merged, masked2
 
 def yoloDetect(img):
     net = Detector(bytes("cfg.taichun/yolov3-tiny.cfg", encoding="utf-8"),
@@ -140,81 +190,45 @@ def ndvi1(image):
     return merged
 
 
-counter = 0
-debug = None
 cv2.namedWindow("Plant Image", cv2.WND_PROP_FULLSCREEN)        # Create a named window
 cv2.setWindowProperty("Plant Image", cv2.WND_PROP_FULLSCREEN,cv2.WINDOW_FULLSCREEN)
 
-
+ii = 0
 while True:
     img = takePicture()
     displayImage(img, "images/bg_pic.jpg", "Plant Image", 3000)
 
-    ndviImg = ndvi1(img)
-    displayImage(ndviImg, "images/bg_a0.jpg", "Plant Image", 3000)
+    img = ndvi1(img)
+    displayImage(img, "images/bg_a0.jpg", "Plant Image", 3000)
 
+    del img
 #--> PLANT CV
     img = takePicture()
     displayImage(img, "images/bg_pic.jpg", "Plant Image", 3000)
 
-    counter, s = pcv.rgb2gray_hsv(img, 's', counter, debug)
-    counter, s_thresh = pcv.binary_threshold(s, 145, 255, 'light', counter, debug)
-    counter, s_mblur = pcv.median_blur(s_thresh, 5, counter, debug)
-
-     # Convert RGB to LAB and extract the Blue channel
-    counter, b = pcv.rgb2gray_lab(img, 'b', counter, debug)
-
-    # Threshold the blue image
-    counter, b_thresh = pcv.binary_threshold(b, 145, 255, 'light', counter, debug)
-    counter, b_cnt = pcv.binary_threshold(b, 145, 255, 'light', counter, debug)
-    # Join the thresholded saturation and blue-yellow images
-    counter, bs = pcv.logical_or(s_mblur, b_cnt, counter, debug)
-    counter, masked = pcv.apply_mask(img, bs, 'white', counter, debug)
-
-    #----------------------------------------
-    # Convert RGB to LAB and extract the Green-Magenta and Blue-Yellow channels
-    counter, masked_a = pcv.rgb2gray_lab(masked, 'a', counter, debug)
-    counter, masked_b = pcv.rgb2gray_lab(masked, 'b', counter, debug)
-
-    # Threshold the green-magenta and blue images
-    counter, maskeda_thresh = pcv.binary_threshold(masked_a, 115, 255, 'dark', counter, debug)
-    counter, maskeda_thresh1 = pcv.binary_threshold(masked_a, 135, 255, 'light', counter, debug)
-    counter, maskedb_thresh = pcv.binary_threshold(masked_b, 128, 255, 'light', counter, debug)
-
-    # Join the thresholded saturation and blue-yellow images (OR)
-    counter, ab1 = pcv.logical_or(maskeda_thresh, maskedb_thresh, counter, debug)
-    counter, ab = pcv.logical_or(maskeda_thresh1, ab1, counter, debug)
-    counter, ab_cnt = pcv.logical_or(maskeda_thresh1, ab1, counter, debug)
-
-    # Fill small objects
-    counter, ab_fill = pcv.fill(ab, ab_cnt, 200, counter, debug)
-
-    # Apply mask (for vis images, mask_color=white)
-    counter, masked2 = pcv.apply_mask(masked, ab_fill, 'white', counter, debug)
-
-    #-------------------------------------------------------
-     # Identify objects
-    #counter, id_objects,obj_hierarchy = pcv.find_objects(masked2, ab_fill, counter, debug)
-    # Define ROI
-    #counter, roi1, roi_hierarchy= pcv.define_roi(masked2, 'rectangle', counter, None, 'default', debug, True, 550, 0, -500, -1900)
-    # Decide which objects to keep
-    #counter, roi_objects, hierarchy3, kept_mask, obj_area = pcv.roi_objects(img, 'partial', roi1, roi_hierarchy, id_objects, obj_hierarchy, counter, debug)
-    # Object combine kept objects
-    #counter, obj, mask = pcv.object_composition(img, roi_objects, hierarchy3, counter, debug)
-
-    zeros = np.zeros(masked2.shape[:2], dtype = "uint8")
-    merged = cv2.merge([zeros, ab_fill, zeros])
+    merged, masked2 = plant_cv(img)
 
     for i in range(2):
         displayImage(img, "images/bg_a1.jpg", "Plant Image", 3000)
         displayImage(merged, "images/bg_a1.jpg", "Plant Image", 3000)
         displayImage(masked2, "images/bg_a1.jpg", "Plant Image", 3000)
 
-    #<--- END PLANT CV
+    del img
+    del merged
+    del masked2
+#<--- END PLANT CV
 
     img = takePicture()
-    displayImage(img, "images/bg_pic.jpg", "Plant Image", 1000)
+    #displayImage(img, "images/bg_pic.jpg", "Plant Image", 1000)
 
     displayImage(img, "images/bg_a2.jpg", "Plant Image", 3000)
-    yoloimage = yoloDetect(img)
-    displayImage(yoloimage, "images/bg_a2.jpg", "Plant Image", 9000)
+    img = yoloDetect(img)
+    displayImage(img, "images/bg_a2.jpg", "Plant Image", 9000)
+
+    del img
+    gc.collect()
+    ii += 1
+
+    if(ii>6):
+        #os.kill(os.getpid(), 9)
+        os.execv('/home/pi/taichun/main.py', [''])
