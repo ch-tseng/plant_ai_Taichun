@@ -116,7 +116,7 @@ def plant_cv(img):
 
     return merged, masked2
 
-def yoloDetect(img):
+def yolo_plants(img):
     net = Detector(bytes("cfg.taichun/yolov3-tiny.cfg", encoding="utf-8"),
         bytes("cfg.taichun/weights/yolov3-tiny_3600.weights", encoding="utf-8"), 0,
         bytes("cfg.taichun/obj.data",encoding="utf-8"))
@@ -144,6 +144,36 @@ def yoloDetect(img):
         img[ int(y):int(y+boundbox.shape[0]), int(x):int(x+boundbox.shape[1])] = boundbox
 
     return img
+
+def yolo_insects(img):
+        net = Detector(bytes("cfg.insects/yolov3-tiny.cfg", encoding="utf-8"),
+            bytes("cfg.insects/weights/yolov3-tiny_15800.weights", encoding="utf-8"), 0,
+            bytes("cfg.insects/obj.data",encoding="utf-8"))
+
+    img2 = Image(img)
+
+    results = net.detect(img2)
+
+    for cat, score, bounds in results:
+        cat = cat.decode("utf-8")
+        if(cat == "Pteris_cretica"):
+            boundcolor = (0, 238, 252)
+        elif(cat == "Echeveria_Minibelle"):
+            boundcolor = (227, 252, 2)
+        elif(cat == "Crassula_capitella"):
+            boundcolor = (249, 77, 190)
+
+        x, y, w, h = bounds
+        cv2.rectangle(img, (int(x - w / 2), int(y - h / 2)), (int(x + w / 2), int(y + h / 2)), (255, 0, 0), thickness=2)
+
+        boundbox = cv2.imread("images/"+cat+".jpg")
+        print("read:","images/"+cat+".jpg")
+        print(y, boundbox.shape[0],x , boundbox.shape[1])
+        #img[ int(y-h/2):int(y-h/2)+boundbox.shape[0], int(x-w/2):int(x-w/2)+boundbox.shape[1]] = boundbox
+        img[ int(y):int(y+boundbox.shape[0]), int(x):int(x+boundbox.shape[1])] = boundbox
+
+    return img
+
 
 def contrast_stretch(im):
     """
@@ -221,14 +251,14 @@ while True:
     img = takePicture()
     #displayImage(img, "images/bg_pic.jpg", "Plant Image", 1000)
 
-    displayImage(img, "images/bg_a2.jpg", "Plant Image", 3000)
-    img = yoloDetect(img)
-    displayImage(img, "images/bg_a2.jpg", "Plant Image", 9000)
+    displayImage(img, "images/bg_a2.jpg", "Plant Image", 500)
+    img = yolo_plants(img)
+    displayImage(img, "images/bg_a3.jpg", "Plant Image", 9000)
 
     del img
     gc.collect()
     ii += 1
 
-    if(ii>6):
+    if(ii>5):
         #os.kill(os.getpid(), 9)
         os.execv('/home/pi/taichun/main.py', [''])
