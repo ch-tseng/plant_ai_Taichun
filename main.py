@@ -23,14 +23,19 @@ def takePicture():
     return img
 
 def displayImage(img, bgimg, winName="test", waitTime=0):
-    print(img.shape)
-    img = imutils.resize(img, height=720)
-    print(img.shape)
-    if(bgimg != None):
-        bg = cv2.imread(bgimg)
-        bg[240:240+img.shape[0], 0:img.shape[1]] = img
+    if(isinstance(img, np.ndarray)):
+        print(img.shape)
+        img = imutils.resize(img, height=720)
+        print(img.shape)
+
+        if(bgimg != None):
+            bg = cv2.imread(bgimg)
+            bg[240:240+img.shape[0], 0:img.shape[1]] = img
+        else:
+            bg = img
+
     else:
-        bg = img
+        bg = cv2.imread(bgimg)
 
     cv2.imshow(winName, bg)
     cv2.waitKey(waitTime)
@@ -146,8 +151,8 @@ def yolo_plants(img):
     return img
 
 def yolo_insects(img):
-        net = Detector(bytes("cfg.insects/yolov3-tiny.cfg", encoding="utf-8"),
-            bytes("cfg.insects/weights/yolov3-tiny_15800.weights", encoding="utf-8"), 0,
+    net = Detector(bytes("cfg.insects/yolov3-tiny.cfg", encoding="utf-8"),
+            bytes("cfg.insects/weights/yolov3-tiny_95000.weights", encoding="utf-8"), 0,
             bytes("cfg.insects/obj.data",encoding="utf-8"))
 
     img2 = Image(img)
@@ -156,22 +161,38 @@ def yolo_insects(img):
 
     for cat, score, bounds in results:
         cat = cat.decode("utf-8")
-        if(cat == "Pteris_cretica"):
-            boundcolor = (0, 238, 252)
-        elif(cat == "Echeveria_Minibelle"):
-            boundcolor = (227, 252, 2)
-        elif(cat == "Crassula_capitella"):
-            boundcolor = (249, 77, 190)
+        if(cat == "0_ladybug"):
+            boundcolor = (4, 5, 250)
+        elif(cat == "1_Camellia"):
+            boundcolor = (215, 158, 2)
+        elif(cat == "2_Pieridae"):
+            boundcolor = (57, 182, 6)
+        elif(cat == "3_Lindinger"):
+            boundcolor = (5, 70, 111)
+        elif(cat == "4_Papilio_1_4"):
+            boundcolor = (6, 148, 195)
+        elif(cat == "5_Papilio_5"):
+            boundcolor = (6, 148, 195)
+        elif(cat == "6_ant"):
+            boundcolor = (249, 7, 132)
+
 
         x, y, w, h = bounds
-        cv2.rectangle(img, (int(x - w / 2), int(y - h / 2)), (int(x + w / 2), int(y + h / 2)), (255, 0, 0), thickness=2)
+        print(x, y, w, h)
+
+        xx = int(round(x, 0))
+        yy = int(round(y, 0))
+        ww = int(round(w, 0))
+        hh = int(round(h, 0))
+        cv2.rectangle(img, (int(xx - (ww / 2)), int(yy - (hh / 2))), (int(xx + (ww / 2)), int(yy + (hh / 2))), (255, 0, 0), thickness=2)
 
         boundbox = cv2.imread("images/"+cat+".jpg")
         print("read:","images/"+cat+".jpg")
-        print(y, boundbox.shape[0],x , boundbox.shape[1])
+        print(boundbox.shape)
+        print(yy, yy+boundbox.shape[0], xx, xx+boundbox.shape[1])
         #img[ int(y-h/2):int(y-h/2)+boundbox.shape[0], int(x-w/2):int(x-w/2)+boundbox.shape[1]] = boundbox
-        img[ int(y):int(y+boundbox.shape[0]), int(x):int(x+boundbox.shape[1])] = boundbox
-
+        img[ yy:yy+boundbox.shape[0], xx:xx+boundbox.shape[1] ] = boundbox
+        
     return img
 
 
@@ -225,14 +246,18 @@ cv2.setWindowProperty("Plant Image", cv2.WND_PROP_FULLSCREEN,cv2.WINDOW_FULLSCRE
 
 ii = 0
 while True:
+    displayImage(None, "images/bg_ndvi0.jpg", "Plant Image", 3000)
+
     img = takePicture()
     displayImage(img, "images/bg_pic.jpg", "Plant Image", 3000)
 
     img = ndvi1(img)
-    displayImage(img, "images/bg_a0.jpg", "Plant Image", 3000)
+    displayImage(img, "images/bg_ndvi1.jpg", "Plant Image", 5000)
 
     del img
 #--> PLANT CV
+    displayImage(None, "images/bg_plantcv0.jpg", "Plant Image", 3000)
+
     img = takePicture()
     displayImage(img, "images/bg_pic.jpg", "Plant Image", 3000)
 
@@ -248,16 +273,34 @@ while True:
     del masked2
 #<--- END PLANT CV
 
-    img = takePicture()
-    #displayImage(img, "images/bg_pic.jpg", "Plant Image", 1000)
+#--> Yolo for plant classes
+    try:
+        displayImage(None, "images/bg_a2.jpg", "Plant Image", 3000)
 
-    displayImage(img, "images/bg_a2.jpg", "Plant Image", 500)
-    img = yolo_plants(img)
-    displayImage(img, "images/bg_a3.jpg", "Plant Image", 9000)
+        img = takePicture()
+        img = yolo_plants(img)
+        #displayImage(img, "images/bg_a1.jpg", "Plant Image", 1000)
+        #img = yolo_plants(img)
+        displayImage(img, "images/bg_a3.jpg", "Plant Image", 500)
 
-    del img
-    gc.collect()
-    ii += 1
+    except:
+        pass
+
+#--> Yolo for insect classes
+    try:
+        img = takePicture()
+        img = yolo_insects(img)
+        #displayImage(img, "images/bg_a1.jpg", "Plant Image", 1000)
+        displayImage(None, "images/bg_b2.jpg", "Plant Image", 5000)
+        #img = yolo_plants(img)
+        displayImage(img, "images/bg_b3.jpg", "Plant Image", 10000)
+
+        del img
+        gc.collect()
+        ii += 1
+
+    except:
+        pass
 
     if(ii>5):
         #os.kill(os.getpid(), 9)
