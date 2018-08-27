@@ -1,5 +1,5 @@
 classes= 7
-train  = /home/digits/jupyter/chtseng/opencv-cascade-make/yolo-v3/cfg.insects/train.txt
-valid  = /home/digits/jupyter/chtseng/opencv-cascade-make/yolo-v3/cfg.insects/test.txt
-names = /home/digits/jupyter/chtseng/opencv-cascade-make/yolo-v3/cfg.insects/obj.names
-backup = /home/digits/jupyter/chtseng/opencv-cascade-make/yolo-v3/cfg.insects/weights/
+train  = cfg.insects/train.txt
+valid  = cfg.insects/test.txt
+names = cfg.insects/obj.names
+backup = cfg.insects/weights/

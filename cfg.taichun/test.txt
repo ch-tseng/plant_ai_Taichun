@@ -1,0 +1,9 @@
+../dataset/taichun_plant/yolo/IMG_4714.JPG
+../dataset/taichun_plant/yolo/IMG_4731.JPG
+../dataset/taichun_plant/yolo/IMG_4707.JPG
+../dataset/taichun_plant/yolo/IMG_4713.JPG
+../dataset/taichun_plant/yolo/IMG_4725.JPG
+../dataset/taichun_plant/yolo/IMG_4704.JPG
+../dataset/taichun_plant/yolo/IMG_4702.JPG
+../dataset/taichun_plant/yolo/IMG_4697.JPG
+../dataset/taichun_plant/yolo/IMG_4719.JPG
